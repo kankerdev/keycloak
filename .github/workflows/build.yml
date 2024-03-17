@@ -26,3 +26,4 @@ jobs:
           context: . 
           platforms: linux/amd64,linux/arm64
           tags: ghcr.io/${{ github.repository }}:latest
+          push: ${{ github.event_name != 'pull_request' }}
