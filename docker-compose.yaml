@@ -1,0 +1,53 @@
+# A docker compose file for testing purposes
+version: "3.9"
+
+services: 
+  app:
+    build: .
+    depends_on: [ db ]
+    ports: 
+      - 127.0.0.1:8080:8080/tcp
+    environment:
+      - KC_DB_URL=jdbc:mariadb://db/keycloak
+      - KC_DB_USERNAME=keycloak 
+      - KC_DB_PASSWORD=keycloak
+    labels: 
+      - traefik.enable=true 
+      - traefik.http.routers.keycloak.tls=true
+      - traefik.http.routers.keycloak.entrypoints=web,websecure 
+      - traefik.http.routers.keycloak.rule=Host(`keycloak.localhost`)
+
+  db:
+    image: mariadb:11
+    healthcheck:
+      interval: 30s
+      retries: 3
+      test: [ "CMD", "healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized" ]
+      timeout: 30s
+    environment:
+      - MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=true
+      - MARIADB_DATABASE=keycloak
+      - MARIADB_USER=keycloak
+      - MARIADB_PASSWORD=keycloak
+
+  proxy: 
+    image: traefik:v2.11
+    command: |
+      --api.insecure=true 
+      --providers.docker=true 
+      --providers.docker.exposedbydefault=false
+      --log.level=WARNING
+      --accesslog=true
+      --entrypoints.web.address=:80
+      --entrypoints.websecure.address=:443
+    ports: 
+      - 127.0.0.1:80:80/tcp
+      - 127.0.0.1:443:443/tcp
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true 
+      - traefik.http.routers.traefik-dashboard.tls=true
+      - traefik.http.routers.traefik-dashboard.entrypoints=web,websecure
+      - traefik.http.routers.traefik-dashboard.service=api@internal
+      - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.localhost`)
